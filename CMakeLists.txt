@@ -6,5 +6,5 @@ set(CMAKE_CXX_STANDARD 20)
 add_executable(dev_challenge main.cpp
         antworld.h
         antworld.cpp
-        "utility_functions.h"
-        utility_functions.h)
+        utility_functions.h
+        useable_functions.cpp)

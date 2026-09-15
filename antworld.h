@@ -7,69 +7,55 @@
 //
 // Created by dusan on 9/4/26.
 //
-typedef std::vector<std::vector<int> > MapTemplate;
-
-class WorldMap {
-public:
-    WorldMap(int mapSize_x, int mapSize_y);
-
-    MapTemplate terrainMap;
-    MapTemplate itemMap;
-    MapTemplate pheromoneMap;
-
-    MapTemplate generateWorldMap(int mapSize_x, int mapSize_y);
-
-    MapTemplate spreadFood(int mapSize_x, int mapSize_y, int foodCount);
-
-    bool hasFood();
-};
 
 class Ant {
 public:
-    Ant(int initEnergy, Coord initCoordinates);
+    Ant(int initEnergy, Coord homeCoordinates);
 
-    std::vector<Coord> search(MapTemplate &itemMap);
+    std::vector<Coord> foodScan(MapTemplate &foodMap);
 
-    Coord move(MapTemplate terrainMap, Coord dest);
+    std::vector<Coord> pheromoneScan(MapTemplate &pheromoneMap);
 
-    void dropPheromone(MapTemplate &itemMap);
+    Coord move(MapTemplate &terrainMap, Coord dest, MapTemplate &foodMap);
+
+    void dropPheromone(MapTemplate &foodMap);
 
     void erasePheromone(MapTemplate &pheromoneMap);
 
-    Coord returnHome(MapTemplate &terrainMap);
+    Coord returnHome(MapTemplate &terrainMap, MapTemplate &foodMap);
 
-    int viewRadius;
-    Coord position;
-    int energy;
-    bool pheromoneDropped;
-    Coord pheromonePosition;
-    Coord homeCoord;
-};
+    int energy{0};
 
-class AntColony {
-public:
-    AntColony(int antCount, int mapSize_x, int mapSize_y);
+    Coord homeCoord = Coord(-1, -1);
+    Coord position = Coord(-1, -1);
 
-    void forage();
-
-    bool isEmpty();
-
-    std::vector<Ant> ants;
-    Coord homeCoordinates;
-    int score;
-
-    WorldMap *world;
+    int foodRadius{3};
+    int pheromoneRadius{5};
+    bool pheromoneDropped{false};
+    Coord pheromonePosition = Coord(-1, -1);
+    bool carryingFood{false};
 };
 
 class AntWorld {
 public:
-    AntWorld(int mapSize_x = 15, int mapSize_y = 15, int antCount = 20);
+    AntWorld(int mapSize_x = 15, int mapSize_y = 15, int antCount = 8);
 
-    bool step();
+    bool worldStep();
+
+    void forage();
+
+    void updateWorld();
 
     bool isGameOver();
 
-    AntColony colony;
+    MapTemplate terrainMap;
+    MapTemplate foodMap;
+    MapTemplate pheromoneMap;
+
+    std::vector<Ant> ants = {};
+    Coord homeCoordinates = Coord(-1, -1);
+
+    int score = 0;
 };
 
 
