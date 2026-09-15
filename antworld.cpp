@@ -2,6 +2,7 @@
 #include <vector>
 #include <random>
 #include <algorithm>
+#include <iostream>
 
 //
 // Created by dusan on 9/4/26.
@@ -36,6 +37,7 @@ AntWorld::AntWorld(int mapSize_x, int mapSize_y, int antCount) {
         // and initial energy for each ant
         int initialEnergy = std::uniform_int_distribution<int>(int(mapSize_x * mapSize_y * 0.2),
                                                                int(mapSize_x * mapSize_y * 0.4))(gen);
+        std::cout << initialEnergy << std::endl;
         this->ants.emplace_back(initialEnergy, this->homeCoordinates);
     }
 

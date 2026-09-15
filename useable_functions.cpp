@@ -71,9 +71,10 @@ Coord Ant::move(MapTemplate &terrainMap, Coord dest, MapTemplate &foodMap) {
 
         int cost = 1 + std::abs(terrainMap[r1][c1] - terrainMap[r2][c2]);
         if (cost > energy) {
-            this->position = path[i - 1];
             break;
         }
+        this->position = path[i];
+        energy -= cost;
     }
 
     if (foodMap[this->position.first][this->position.second] == 1) {
