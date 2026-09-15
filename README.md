@@ -363,17 +363,50 @@ make debugging your own code significantly easier later.
 
 **`Antworld.cpp`** and **`Antworld.h`** are files that you may read but should not be needing to edit.
 
-**`useable_functions.cpp`** are the functions that we have written for you to be used to control the ants.
+**`src/useable_functions.cpp`** are the functions that we have written for you to be used to control the ants.
 
-**`applicant_solution.cpp`** is where you will write the main part of your solution, **`AntWorld::forage()`**.
+**`src/applicant_solution.cpp`** is where you will write the main part of your solution, **`AntWorld::forage()`**.
 
-**`main.cpp`** is the executable file that will run when the game and report your score.
+**`src/main.cpp`** is the executable file that will run when the game and report your score.
 
 > Information about any given function should be clear from the included documentation/comments. If something is
 > unclear, contact **petrod6@mcmaster.ca**
 
 Finally, **`EIC Year 1 CAV Development Challenge — AntWorld.md`** is a markdown version of the challenge instructions
 posted on Teams. Feel free to reference it throughout your work on this dev challenge.
+
+# 9. Rules at a glance
+
+### Objective
+
+Maximize food returned to home.
+You control 8 ants.
+
+### You know..
+
+Each ant's position, energy, carrying state, and information
+returned by its sensors.
+
+### You do not know..
+
+Food outside sensor range.
+
+### Movement
+
+Four-connected grid movement. Energy cost between adjacent cells:
+1 + |height difference|
+
+### Food
+
+An ant automatically collects food when it reaches a food cell.
+
+### Scoring
+
++1 for each food item returned home.
+
+### Game Over
+
+All food collected, all ants dead, or maximum step count reached.
 
 # Git Command Quick Reference
 

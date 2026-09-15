@@ -2,10 +2,7 @@
 // Created by dusan on 9/15/26.
 //
 
-#ifndef DEV_CHALLENGE_USEABLE_FUNCTIONS_CPP_H
-#define DEV_CHALLENGE_USEABLE_FUNCTIONS_CPP_H
-
-#include "antworld.h"
+#include "../include/antworld.h"
 
 /** @brief Checks all squares within foodRadius blocks of itself.
  *
@@ -121,5 +118,3 @@ void Ant::erasePheromone(MapTemplate &pheromoneMap) {
 Coord Ant::returnHome(MapTemplate &terrainMap, MapTemplate &foodMap) {
     return this->move(terrainMap, this->homeCoord, foodMap);
 }
-
-#endif //DEV_CHALLENGE_USEABLE_FUNCTIONS_CPP_H

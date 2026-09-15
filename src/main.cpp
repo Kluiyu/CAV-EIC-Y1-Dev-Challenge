@@ -1,5 +1,5 @@
 #include <iostream>
-#include "antworld.h"
+#include "../include/antworld.h"
 
 /** @brief The main function that will run the game. If you are not using a IDE gui, this is the executable you want to target when you build
  */

@@ -1,4 +1,4 @@
-#include "antworld.h"
+#include "../include/antworld.h"
 #include <vector>
 #include <random>
 #include <algorithm>
