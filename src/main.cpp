@@ -20,7 +20,7 @@ int main() {
 
     bool gameOver = false;
     int stepCount = 1;
-    while (not gameOver && stepCount <= MAX_SIMULATION_STEP_COUNT) {
+    while (!gameOver && stepCount <= MAX_SIMULATION_STEP_COUNT) {
         gameOver = gameInstance.worldStep();
         stepCount++;
     }

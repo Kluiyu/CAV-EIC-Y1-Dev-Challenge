@@ -82,7 +82,7 @@ bool AntWorld::isGameOver() {
     }
 
     // if there is no remaining food, congrats, game over
-    if (not hasFood(foodMap)) {
+    if (!hasFood(foodMap)) {
         return true;
     }
 
