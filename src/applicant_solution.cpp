@@ -10,6 +10,10 @@
  * here are some existing examples of how calling these functions works to help get you started!
  */
 void AntWorld::forage() {
+    /*
+    09/22/26
+        basic wandering algo. score = 9
+    */
     /* hmm how to spread out ants..
     all start at home location i think. maybe move in random direction, layinng pheromone
     if phermone is detected, avoid it.
@@ -34,21 +38,17 @@ void AntWorld::forage() {
     
     //all ants perform same actions
     for (int i = 0; i < this->ants.size(); ++i) {
-        // go home if carrying food
-        if (this->ants[i].carryingFood) {
-            this->ants[i].returnHome(this->terrainMap, this->foodMap);
-            //drops pheromone if about to die
-            if (this->ants[i].energy == 0) {
-                this->ants[i].dropPheromone(this->pheromoneMap);
-            }
-        } 
-        
-
-        // look for food in view radius
+        //scan for food and pheromones in view radius
         std::vector<Coord> visibleFood = this->ants[i].foodScan(this->foodMap);
+        std::vector<Coord> visiblePheromones = this->ants[i].pheromoneScan(this->pheromoneMap);
+        
+        // look for food in view radius
         if(!visibleFood.empty()) {
             // move to first visible food
             this->ants[i].move(this->terrainMap, visibleFood[0], this->foodMap);
+        } else if(!visiblePheromones.empty()) {
+            // move to first visible pheromone
+            this->ants[i].move(this->terrainMap, visiblePheromones[0], this->foodMap);
         } else {
             // otherwise, move to random location
             std::uniform_int_distribution<int> rowDist(0, this->terrainMap.size() - 1);
@@ -56,6 +56,15 @@ void AntWorld::forage() {
             Coord randomDestination = {rowDist(rng), colDist(rng)};
             this->ants[i].move(this->terrainMap, randomDestination, this->foodMap);
         }
+        
+        // go home if carrying food (CHANGE: if too far from home, wander instead?)
+        if (this->ants[i].carryingFood) {
+            this->ants[i].returnHome(this->terrainMap, this->foodMap);
+            //drops pheromone if about to die
+            if (this->ants[i].energy == 0) {
+                this->ants[i].dropPheromone(this->pheromoneMap);
+            }
+        } 
     }
 }
 
