@@ -4,13 +4,22 @@
 
 #include "../include/antworld.h"
 #include <iostream>
+#include <functional>
+#include <algorithm>
+#include <math.h>
+#include <random>
+#include <numeric>
 
 //function prototypes
-bool isCheckerboard(Coord pos);
-void flipOffChecker(std::vector<std::vector<int> > &pheromoneMap, Ant &ant);
-void flipOnChecker(std::vector<std::vector<int> > &pheromoneMap, Ant &ant);
-Coord offPatternCheckerboard(std::vector<std::vector<int> > &pheromoneMap, std::vector<Coord> positions);
-std::vector<Coord> scanSurroundings(Ant &ant, MapTemplate &map, Coord position, int radius);
+bool isCheckerboard(Coord, int);
+bool isPolka(Coord, int);
+void flipOffPattern(std::function<bool(Coord, int)>, std::vector<std::vector<int>>&, Ant&);
+void flipOnPattern(std::function<bool(Coord, int)>, std::vector<std::vector<int>>&, Ant&);
+Coord offPatternPositions(std::function<bool(Coord, int)>, std::vector<std::vector<int>>&, Ant&);
+std::vector<Coord> scanSurroundings(Ant&, MapTemplate&);
+Coord searchPos(Ant&, std::vector<std::vector<int>>&);
+Coord closest(Ant&, std::vector<Coord>);
+bool canTakeStep(Ant&, std::vector<std::vector<int>>&, Coord);
 
 /** @brief this is where you as the applicant will make use of the above functions to develop your solution.
  * here are some existing examples of how calling these functions works to help get you started!
@@ -20,89 +29,123 @@ void AntWorld::forage() {
     09/22/26
         ALGOS AND SCORES WITH BASE SEED 12345
         basic wandering algo. score = 9
+            -ants move randomly, pick up food and return home when food is spotted
         added search w/pheromones; score = 28
+            - ants move randomly initially, if they die with food on them, drop a pheromone marker
+            - ants prioritize moving to pheromones and moving home, erasing pheromone if food is picked up
 
     09/24/26
-        tried implementing the checkerboard pheromone strategy; score = 22
-    */
-    /* hmm how to spread out ants..
-    all start at home location i think. maybe move in random direction, layinng pheromone
-    if phermone is detected, avoid it.
-    if have food, return home only when energy cost = all energy available wait no can only carry one food at a time. 
-    can we have multiple pheromone types ?? can i do that
-    probably not lol. maybe instead make pattern (like checkerboard, so violations of pattern can also be detected as smth else)
-    if no food, keep moving until energy is depleted, mapping out as you go
-    1. search for surrounding food in view radius
-    2. if food found, move to it and pick it up, move home
+        checkerboard pheromone strategy; score = 21
+            - using pheromones to form a checkerboard pattern, if any tiles spotted that are 'off-pattern', move there
+            - if food is found when ant is already carrying, flip tile 'off pattern'
+            - if food is picked up from an 'off pattern' tile, flip it 'on pattern'
+            - does worse, i assume its cause the ants waste all their energy moving to form the pattern, unecessary
+
+    09/28/26
+        sparse pheromone strategy; score = 20
+            - similar to previous strategy, switch out checkerboard pattern for having one every so often (based on radius of view)
+            - think. probably the pattern doesnt stretch out far enough, so ants are still wandering around aimlessly.
+    09/30/26
+        add distance calc to finding food. tried reverting back to base pheromone strategy without pattern
+        issue with hitting step limit likely due to ants getting stuck, implemented apoptosis to fix lol
+        score = 18. still not great ...
 
     */
-    
-    //
-    // Coord desiredDestination = Coord(5, 5);
-    // Coord finalPos = this->ants[0].move(this->terrainMap, desiredDestination, this->foodMap);
-    // bool destCheck = (desiredDestination == finalPos);
-    // //
-    // this->ants[0].dropPheromone(this->pheromoneMap);
-    //
-    // this->ants[0].erasePheromone(this->pheromoneMap);
-    //
-    // this->ants[0].returnHome(this->terrainMap, this->foodMap);
-    
+   
     //all ants perform same actions
     for (int i = 0; i < this->ants.size(); ++i) {
         //scan for food and pheromones in view radius
         std::vector<Coord> visibleFood = this->ants[i].foodScan(this->foodMap);
         std::vector<Coord> visiblePheromones = this->ants[i].pheromoneScan(this->pheromoneMap);
+        std::vector<Coord> visibleSpaces = scanSurroundings(this->ants[i], this->pheromoneMap);
+        Coord currentPos = {this->ants[i].position.first, this->ants[i].position.second};
+        //drop pheromone marking to create pattern
+        // flipOnPattern(isPolka, this->pheromoneMap, this->ants[i])
+        ;
+        //skip loop if ant has no energy left
+        if (this->ants[i].energy <= 0) {
+            continue;
+        }
 
-        //drop pheromone marking to create checkerboard
-        flipOnChecker(this->pheromoneMap, this->ants[i]);
-        
         //prioritize returning home with food, then looking for food, then exploring.
-        // go home if carrying food (CHANGE maybe: if too far from home, wander instead?)
+        // go home if carrying food 
         if (this->ants[i].carryingFood) {
-            //marks food seen nearby before heading home
-            if(!visibleFood.empty()) {
-                this->ants[i].move(this->terrainMap, visibleFood[0], this->foodMap);
-                flipOffChecker(this->pheromoneMap, this->ants[i]);
+            //marks food seen nearby before heading home (if not already on food)
+            //***check if food is already marked ?
+            if(!visibleFood.empty() && this->foodMap[currentPos.first][currentPos.second] != 1) {
+                Coord closestFoodPos = closest(this->ants[i], visibleFood);
+                if (canTakeStep(this->ants[i], this->terrainMap, closestFoodPos)) {
+                    this->ants[i].move(this->terrainMap, closestFoodPos, this->foodMap);
+                    this->ants[i].dropPheromone(this->pheromoneMap);
+                } else { 
+                    this->ants[i].dropPheromone(this->pheromoneMap);
+                    this->ants[i].energy = 0;
+                }
+                // this->ants[i].move(this->terrainMap, visibleFood[0], this->foodMap);
+                // flipOffPattern(isPolka, this->pheromoneMap, this->ants[i]);
+                // this->ants[i].dropPheromone(this->pheromoneMap);
             }
-            this->ants[i].returnHome(this->terrainMap, this->foodMap);
 
-            //drops pheromone if about to die
-            if (this->ants[i].energy == 0) {
-                this->ants[i].dropPheromone(this->pheromoneMap);
+            //if ant can reach home, go home, otherwise move to pheromone
+            if (canTakeStep(this->ants[i], this->terrainMap, this->ants[i].homeCoord)) {
+                this->ants[i].returnHome(this->terrainMap, this->foodMap);
+                continue;
+            } else {
+                    this->ants[i].dropPheromone(this->pheromoneMap);
+                    this->ants[i].energy = 0;
             }
+            // //flips pheromone if about to die
+            // if (this->ants[i].energy <= 2) {
+            //     // flipOffPattern(isPolka, this->pheromoneMap, this->ants[i]);
+            //     this->ants[i].dropPheromone(this->pheromoneMap);
+            // }
 
         } else if(!visibleFood.empty()) {
-            // look for food in view radius (if not carrying food), move there
-            this->ants[i].move(this->terrainMap, visibleFood[0], this->foodMap);
-            flipOnChecker(this->pheromoneMap, this->ants[i]);
-        } 
-        // look for off-pattern positions, move to those
-        else {
-            Coord offPatternPos = offPatternCheckerboard(this->pheromoneMap, visiblePheromones);
-            //checking if any off-pattern positions were found, if so move to first one
-            if (offPatternPos.first != -1 && offPatternPos.second != -1) {
-                this->ants[i].move(this->terrainMap, offPatternPos, this->foodMap);
+            // look for food in view radius (if not carrying food), move there, mark it
+            Coord closestFoodPos = closest(this->ants[i], visibleFood);
+            if (canTakeStep(this->ants[i], this->terrainMap, closestFoodPos)) {
+                    this->ants[i].move(this->terrainMap, closestFoodPos, this->foodMap);
+                    this->ants[i].dropPheromone(this->pheromoneMap);
             } else {
-                // otherwise, move to random location on edge of radius
-                // UHH IMPLEMENT THIS LATER LOL
-                std::uniform_int_distribution<int> rowDist(0, this->terrainMap.size() - 1);
-                std::uniform_int_distribution<int> colDist(0, this->terrainMap[0].size() - 1);
-                Coord randomDestination = {rowDist(rng), colDist(rng)};
-                this->ants[i].move(this->terrainMap, randomDestination, this->foodMap);
+                this->ants[i].energy = 0;
             }
-            // this->ants[i].move(this->terrainMap, offPatternPos, this->foodMap);
+            // flipOffPattern(isPolka, this->pheromoneMap, this->ants[i]);
+
+        } else if (!visiblePheromones.empty()) { // look for pheromones in view radius, move there
+            Coord closestPheromonePos = closest(this->ants[i], visiblePheromones);
+            if (canTakeStep(this->ants[i], this->terrainMap, closestPheromonePos)) {
+                this->ants[i].move(this->terrainMap, closestPheromonePos, this->foodMap);
+            } else {
+                this->ants[i].energy = 0;
+            }
+
+            // this->ants[i].move(this->terrainMap, visiblePheromones[0], this->foodMap);
+            // flipOffPattern(isPolka, this->pheromoneMap, this->ants[i]);
+            
+        } else { // otherwise, move to random location on edge of radius
+            Coord moveTo = searchPos(this->ants[i], this->pheromoneMap);
+            if (canTakeStep(this->ants[i], this->terrainMap, moveTo)) {
+                this->ants[i].move(this->terrainMap, moveTo, this->foodMap);
+            } else {
+                this->ants[i].energy = 0;
+            }
+            // Coord offPatternPos = offPatternPositions(isPolka, this->pheromoneMap, this->ants[i]);
+            // //checking if any off-pattern positions were found, if so move to first one
+            // if (offPatternPos.first != -1 && offPatternPos.second != -1) {
+            //     this->ants[i].move(this->terrainMap, offPatternPos, this->foodMap);
+                
+                // yeah random mvmt isnt helping lol okay better movement solution
+            
         }
-        
     }
 }
 
 /** You may insert any custom functions below **/
-//returns all coordinates an ant can see
-std::vector<Coord> scanSurroundings(Ant &ant, MapTemplate &map, Coord position, int radius) {
+//returns all coordinates an ant can see using pheromones
+std::vector<Coord> scanSurroundings(Ant &ant, MapTemplate &map) {
     std::vector<Coord> visibleCoords;
-    for (int i = ant.position.first - ant.foodRadius; i <= ant.position.first + ant.foodRadius; ++i) {
-        for (int j = ant.position.second - ant.foodRadius; j <= ant.position.second + ant.foodRadius; ++j) {
+    for (int i = ant.position.first - ant.pheromoneRadius; i <= ant.position.first + ant.pheromoneRadius; ++i) {
+        for (int j = ant.position.second - ant.pheromoneRadius; j <= ant.position.second + ant.pheromoneRadius; ++j) {
             if (i < 0 || i >= map.size() || j < 0 || j >= map[0].size()) {
                 continue;
             } else {
@@ -113,20 +156,29 @@ std::vector<Coord> scanSurroundings(Ant &ant, MapTemplate &map, Coord position, 
     return visibleCoords;
 }
 
+//pattern functions
 //sees if position coordinate is on a 'checkerboard' pattern (ex. (1,1), (1,3), (2,2).. etc)
-bool isCheckerboard(Coord pos) {
+bool isCheckerboard(Coord pos, int unused = 0) {
     return (pos.first ^ pos.second) & 1;
 }
 
-void flipOffChecker(std::vector<std::vector<int> > &pheromoneMap, Ant &ant) {
-    if (isCheckerboard(ant.position)) {
+//checks if position is on. like. how do i describe this
+bool isPolka(Coord pos, int radius) {
+    return pos.first % radius == 0 && pos.second % radius == 0;
+}
+
+//breaks pattern
+void flipOffPattern(std::function<bool(Coord, int)> isPattern, std::vector<std::vector<int>> &pheromoneMap, Ant &ant) {
+    if (isPattern(ant.position, ant.pheromoneRadius)) {
         ant.erasePheromone(pheromoneMap);
     } else {
         ant.dropPheromone(pheromoneMap);
     }
 }
-void flipOnChecker(std::vector<std::vector<int> > &pheromoneMap, Ant &ant) {
-    if (!isCheckerboard(ant.position)) {
+
+//makes pattern
+void flipOnPattern(std::function<bool(Coord, int)> isPattern, std::vector<std::vector<int>> &pheromoneMap, Ant &ant) {
+    if (!isPattern(ant.position, ant.pheromoneRadius)) {
         ant.erasePheromone(pheromoneMap);
     } else {
         ant.dropPheromone(pheromoneMap);
@@ -135,27 +187,80 @@ void flipOnChecker(std::vector<std::vector<int> > &pheromoneMap, Ant &ant) {
 
 //if the position is on the checkerboard, should have pheromone on it, if not should be empty.
 //if above is false, move to first of that position found!
-Coord offPatternCheckerboard(
+Coord offPatternPositions(
+    std::function<bool(Coord, int)> isPattern,
     std::vector<std::vector<int> > &pheromoneMap, 
-    std::vector<Coord> positions) {
-    std::vector<Coord> offPatternPositions;
+    // std::vector<Coord> positions,
+    Ant &ant) {
+    std::vector<Coord> positions = scanSurroundings(ant, pheromoneMap);
     for (const auto& pos : positions) {
-        if (isCheckerboard(pos)) {
-            if (pheromoneMap[pos.first][pos.second] == 0) {
-                return pos;
-                // offPatternPositions.push_back(pos);
-            }
-        } else {
-            offPatternPositions.push_back(pos);
-            if (pheromoneMap[pos.first][pos.second] == 1) {
-                return pos;
-                // offPatternPositions.push_back(pos);
-            }
-        }
+        if (!isPattern(pos, ant.pheromoneRadius)) {
+            return pos;
+        } 
     }
     //nothing found
     return {-1, -1};
-    
-    // return offPatternPositions;
+}
 
+int distFromHome(Coord pos, Coord home){
+    return sqrt(pow(pos.first-home.first, 2) + pow(pos.second-home.second, 2));
+}
+
+//search movement
+Coord searchPos(Ant &ant, std::vector<std::vector<int> > &pheromoneMap){
+    Coord pos = ant.position; //initial position
+    Coord home = ant.homeCoord; //home position
+
+    //prefer locations further from home coordinates
+    std::vector<Coord> candidates = scanSurroundings(ant, pheromoneMap);
+    std::sort(candidates.begin(), candidates.end(), [home](Coord a, Coord b){
+        return (distFromHome(a, home) > distFromHome(b, home)); //sorted descending
+    });
+
+    //remove current location
+    candidates.erase(std::remove(candidates.begin(), candidates.end(), pos), candidates.end());
+
+    //keep top 1/4
+    int popSize = candidates.size()/4;
+    int initialSize = candidates.size();
+    for (int i=0; i<(initialSize-popSize); i++){
+        candidates.pop_back();
+    }
+    
+    //add some randomness so ants behave differently 
+    std::random_device rand;
+    std::mt19937 rng(rand());
+    std::uniform_int_distribution<int> dist(0, candidates.size() - 1);
+
+    return candidates[dist(rng)];
+}
+
+//returns index of closest food/pheromon in coords vector, -1 if none found
+Coord closest(Ant &ant, std::vector<Coord> coords){
+    Coord closestPos = {-1, -1};
+    int minDist = INT_MAX;
+    for (int i=0; i<coords.size(); i++){
+        Coord food = coords.at(i);
+        int dist = sqrt(pow(food.first - ant.position.first, 2) + pow(food.second - ant.position.second, 2));
+        if (dist < minDist) {
+            minDist = dist;
+            closestPos = food;
+        }
+    }
+    return closestPos;
+}
+
+//returns true if ant can take a step towards destination with current energy, false otherwise
+bool canTakeStep(Ant& ant, std::vector<std::vector<int>>& terrainMap, Coord dest) {
+    std::vector<Coord> path = shortestPath(terrainMap, ant.position, dest);
+
+    if (path.size() <= 1) {
+        return false;
+    }
+
+    auto [r1, c1] = path[0];
+    auto [r2, c2] = path[1];
+
+    int cost = 1 + std::abs(terrainMap[r1][c1] - terrainMap[r2][c2]);
+    return ant.energy >= cost;
 }
